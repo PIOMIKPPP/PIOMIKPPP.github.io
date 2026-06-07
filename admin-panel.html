@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Admin Panel - Tech Support</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --secondary-bg: #f3f4f6;
+            --border-color: #e5e7eb;
+            --primary: #667eea;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+        body.dark {
+            --bg-color: #1a1a2e;
+            --text-color: #ffffff;
+            --secondary-bg: #16213e;
+            --border-color: #2d3748;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            padding: 16px;
+            transition: all 0.3s ease;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .header h1 { font-size: 24px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .header p { font-size: 14px; opacity: 0.9; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--secondary-bg);
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-value { font-size: 28px; font-weight: bold; color: var(--primary); }
+        .stat-label { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            background: var(--secondary-bg);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .filter-btn.active { background: var(--primary); color: white; }
+        .search-bar { margin-bottom: 20px; }
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: var(--secondary-bg);
+            color: var(--text-color);
+            font-size: 14px;
+        }
+        .search-input:focus { outline: none; border-color: var(--primary); }
+        .ticket-list { display: flex; flex-direction: column; gap: 12px; }
+        .ticket-item {
+            background: var(--secondary-bg);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .ticket-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-color: var(--primary);
+        }
+        .ticket-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .ticket-id { font-weight: bold; font-size: 16px; }
+        .ticket-priority { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+        .priority-high { background: #fee2e2; color: #dc2626; }
+        .priority-medium { background: #fed7aa; color: #ea580c; }
+        .priority-low { background: #d1fae5; color: #059669; }
+        .ticket-status { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+        .status-open { background: #dbeafe; color: #2563eb; }
+        .status-progress { background: #fef3c7; color: #d97706; }
+        .status-closed { background: #e5e7eb; color: #4b5563; }
+        .ticket-topic { font-size: 14px; margin-bottom: 8px; font-weight: 500; }
+        .ticket-info {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        .loading, .empty-state { text-align: center; padding: 40px; opacity: 0.7; }
+        .theme-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: var(--bg-color);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-color); }
+        .ticket-messages { max-height: 400px; overflow-y: auto; margin: 16px 0; }
+        .message {
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+        .message-user { background: var(--secondary-bg); border-left: 3px solid var(--primary); }
+        .message-admin { background: var(--secondary-bg); border-left: 3px solid var(--success); }
+        .message-header { font-size: 12px; margin-bottom: 8px; opacity: 0.7; }
+        .message-text { font-size: 14px; }
+        @media (max-width: 480px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛠️ Admin Panel</h1>
+        <p>Управление тикетами технической поддержки</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card" onclick="filterTickets('all')">
+            <div class="stat-value" id="totalCount">0</div>
+            <div class="stat-label">📋 Всего тикетов</div>
+        </div>
+        <div class="stat-card" onclick="filterTickets('open')">
+            <div class="stat-value" id="openCount" style="color: #10b981;">0</div>
+            <div class="stat-label">🟢 Открытых</div>
+        </div>
+        <div class="stat-card" onclick="filterTickets('in_progress')">
+            <div class="stat-value" id="progressCount" style="color: #f59e0b;">0</div>
+            <div class="stat-label">🟡 В работе</div>
+        </div>
+        <div class="stat-card" onclick="filterTickets('closed')">
+            <div class="stat-value" id="closedCount" style="color: #ef4444;">0</div>
+            <div class="stat-label">🔴 Закрытых</div>
+        </div>
+    </div>
+
+    <div class="search-bar">
+        <input type="text" class="search-input" id="searchInput" placeholder="🔍 Поиск по ID, пользователю или теме..." onkeyup="searchTickets()">
+    </div>
+
+    <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all" onclick="filterTickets('all')">📋 Все</button>
+        <button class="filter-btn" data-filter="open" onclick="filterTickets('open')">🟢 Открытые</button>
+        <button class="filter-btn" data-filter="in_progress" onclick="filterTickets('in_progress')">🟡 В работе</button>
+        <button class="filter-btn" data-filter="closed" onclick="filterTickets('closed')">🔴 Закрытые</button>
+        <button class="filter-btn" onclick="refreshTickets()">🔄 Обновить</button>
+    </div>
+
+    <div class="ticket-list" id="ticketList">
+        <div class="loading">Загрузка тикетов...</div>
+    </div>
+
+    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+
+    <div class="modal" id="ticketModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Тикет #</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody"></div>
+            <div style="display: flex; gap: 10px; margin-top: 16px;">
+                <button class="filter-btn" id="modalReplyBtn" style="background: var(--primary); color: white;" onclick="replyToTicket()">💬 Ответить в Telegram</button>
+                <button class="filter-btn" onclick="closeModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        let allTickets = [];
+        let currentFilter = 'all';
+        let currentSearch = '';
+        let currentTicket = null;
+
+        tg.expand();
+        tg.MainButton.hide();
+        tg.BackButton.hide();
+
+        function loadTickets() {
+            document.getElementById('ticketList').innerHTML = '<div class="loading">🔄 Загрузка тикетов...</div>';
+            tg.sendData(JSON.stringify({ action: 'get_tickets' }));
+        }
+
+        window.Telegram.WebApp.onEvent('message', function(data) {
+            try {
+                const response = JSON.parse(data);
+                if (response.type === 'tickets_data') {
+                    allTickets = response.tickets;
+                    updateStats();
+                    renderTickets();
+                } else if (response.type === 'ticket_detail') {
+                    showTicketDetail(response.ticket);
+                }
+            } catch(e) { console.error(e); }
+        });
+
+        function updateStats() {
+            document.getElementById('totalCount').textContent = allTickets.length;
+            document.getElementById('openCount').textContent = allTickets.filter(t => t.status === 'open').length;
+            document.getElementById('progressCount').textContent = allTickets.filter(t => t.status === 'in_progress').length;
+            document.getElementById('closedCount').textContent = allTickets.filter(t => t.status === 'closed').length;
+        }
+
+        function getFilteredTickets() {
+            let filtered = allTickets;
+            if (currentFilter !== 'all') filtered = filtered.filter(t => t.status === currentFilter);
+            if (currentSearch) {
+                const s = currentSearch.toLowerCase();
+                filtered = filtered.filter(t => t.id.toString().includes(s) || t.username.toLowerCase().includes(s) || t.topic.toLowerCase().includes(s));
+            }
+            return filtered;
+        }
+
+        function getPriorityClass(p) { return p === 'high' ? 'priority-high' : p === 'medium' ? 'priority-medium' : 'priority-low'; }
+        function getPriorityName(p) { return p === 'high' ? '🔴 Высокий' : p === 'medium' ? '🟠 Средний' : '🟢 Низкий'; }
+        function getStatusClass(s) { return s === 'open' ? 'status-open' : s === 'in_progress' ? 'status-progress' : 'status-closed'; }
+        function getStatusName(s) { return s === 'open' ? 'Открыт' : s === 'in_progress' ? 'В работе' : 'Закрыт'; }
+        function getStatusIcon(s) { return s === 'open' ? '🟢' : s === 'in_progress' ? '🟡' : '🔴'; }
+        function formatTime(t) { return t ? t.substring(0, 16).replace('T', ' ') : 'Н/Д'; }
+        function escapeHtml(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+        function renderTickets() {
+            const filtered = getFilteredTickets();
+            const container = document.getElementById('ticketList');
+            if (filtered.length === 0) { container.innerHTML = '<div class="empty-state">📭 Нет тикетов</div>'; return; }
+            container.innerHTML = filtered.map(t => `
+                <div class="ticket-item" onclick="viewTicket(${t.id})">
+                    <div class="ticket-header">
+                        <span class="ticket-id">${getStatusIcon(t.status)} Тикет #${t.id}</span>
+                        <span class="ticket-priority ${getPriorityClass(t.priority)}">${getPriorityName(t.priority)}</span>
+                        <span class="ticket-status ${getStatusClass(t.status)}">${getStatusName(t.status)}</span>
+                    </div>
+                    <div class="ticket-topic">📌 ${escapeHtml(t.topic)}</div>
+                    <div class="ticket-info">
+                        <span>👤 ${escapeHtml(t.username)}</span>
+                        <span>⏰ ${formatTime(t.created_at)}</span>
+                        ${t.assigned_to ? `<span>👑 Взял: ${escapeHtml(t.assigned_name)}</span>` : ''}
+                        ${t.rating ? `<span>⭐ ${'★'.repeat(t.rating)}${'☆'.repeat(5-t.rating)}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function searchTickets() { currentSearch = document.getElementById('searchInput').value; renderTickets(); }
+        function filterTickets(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(btn => { btn.classList.remove('active'); if (btn.dataset.filter === filter) btn.classList.add('active'); });
+            renderTickets();
+        }
+        function refreshTickets() { loadTickets(); }
+        function viewTicket(id) { tg.sendData(JSON.stringify({ action: 'view_ticket', ticket_id: id })); }
+
+        function showTicketDetail(t) {
+            currentTicket = t;
+            document.getElementById('modalTitle').innerHTML = `${getStatusIcon(t.status)} Тикет #${t.id}`;
+            let messagesHtml = '<div class="ticket-messages">';
+            if (t.messages && t.messages.length) {
+                messagesHtml += t.messages.map(m => `
+                    <div class="message ${m.sender_type === 'ПОЛЬЗОВАТЕЛЬ' ? 'message-user' : 'message-admin'}">
+                        <div class="message-header">${m.sender_type === 'ПОЛЬЗОВАТЕЛЬ' ? '👤' : '👑'} ${escapeHtml(m.sender_name)} • ${m.time}</div>
+                        <div class="message-text">${escapeHtml(m.text)}</div>
+                    </div>
+                `).join('');
+            } else { messagesHtml += '<div>Нет сообщений</div>'; }
+            messagesHtml += '</div>';
+            document.getElementById('modalBody').innerHTML = `
+                <div style="margin-bottom: 16px;">
+                    <p><strong>📝 Тема:</strong> ${escapeHtml(t.topic)}</p>
+                    <p><strong>👤 Пользователь:</strong> ${escapeHtml(t.username)} (ID: ${t.user_id})</p>
+                    <p><strong>📅 Создан:</strong> ${formatTime(t.created_at)}</p>
+                    <p><strong>${getPriorityName(t.priority)}</strong> | <strong>${getStatusName(t.status)}</strong></p>
+                    ${t.assigned_to ? `<p><strong>👑 В работе у:</strong> ${escapeHtml(t.assigned_name)}</p>` : ''}
+                    ${t.rating ? `<p><strong>⭐ Оценка:</strong> ${'★'.repeat(t.rating)}${'☆'.repeat(5-t.rating)} (${t.rating}/5)</p>` : ''}
+                </div>${messagesHtml}
+            `;
+            document.getElementById('ticketModal').classList.add('active');
+        }
+
+        function replyToTicket() { if (currentTicket) { tg.sendData(JSON.stringify({ action: 'reply_to_ticket', ticket_id: currentTicket.id })); tg.close(); } }
+        function closeModal() { document.getElementById('ticketModal').classList.remove('active'); currentTicket = null; }
+        function toggleTheme() {
+            document.body.classList.toggle('dark');
+            const btn = document.querySelector('.theme-toggle');
+            btn.innerHTML = document.body.classList.contains('dark') ? '☀️' : '🌙';
+            localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+        }
+        function loadTheme() { if (localStorage.getItem('theme') === 'dark') { document.body.classList.add('dark'); document.querySelector('.theme-toggle').innerHTML = '☀️'; } }
+        loadTheme();
+        loadTickets();
+        setInterval(loadTickets, 30000);
+    </script>
+</body>
+</html>
